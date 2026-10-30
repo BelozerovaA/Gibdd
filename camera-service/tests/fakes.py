@@ -1,48 +1,56 @@
-"""Общие помощники тестов: поддельный сервис ГИБДД и ожидание условий."""
-import json
-import threading
+"""Общие подделки для тестов camera-service."""
+from __future__ import annotations
+
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import List, Optional
 
 
-class FakeGibdd:
-    """Принимает POST /api/camera-events, запоминает запросы и отвечает заданным образом.
+class FakeSocket:
+    """Имитация CameraSocket: send_detection сразу возвращает ответ."""
 
-    responses: список ответов (status, body) по очереди; когда список кончается, повторяется последний.
-    """
+    def __init__(self, code: str, response=None, fail: bool = False):
+        self.camera_code = code
+        self.response = response or {"type": "ack", "status": "accepted", "event_id": "x"}
+        self.fail = fail
+        self.sent = []
+        self.connected = True
 
-    def __init__(self, responses=None):
-        self.requests = []
-        self.responses = responses or [(200, {"status": "accepted", "alert_id": 1, "delivered": True})]
-        self._lock = threading.Lock()
-        outer = self
+    def send_detection(self, event: dict, timeout: float = 10.0) -> dict:
+        from app.ws_client import DeliveryError, DeliveryRejected
 
-        class Handler(BaseHTTPRequestHandler):
-            def do_POST(self):
-                length = int(self.headers.get("Content-Length", 0))
-                body = json.loads(self.rfile.read(length).decode("utf-8"))
-                with outer._lock:
-                    outer.requests.append({"path": self.path, "token": self.headers.get("X-Service-Token"),
-                                           "content_type": self.headers.get("Content-Type"), "body": body})
-                    index = min(len(outer.requests) - 1, len(outer.responses) - 1)
-                    status, payload = outer.responses[index]
-                data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-                self.send_response(status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
+        if self.fail:
+            raise DeliveryError(f"камера {self.camera_code}: нет соединения")
+        self.sent.append(event)
+        result = dict(self.response)
+        result.setdefault("event_id", event.get("event_id"))
+        if result.get("status") == "error":
+            raise DeliveryRejected(result.get("detail", "error"))
+        return result
 
-            def log_message(self, *args):
-                pass
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
-        threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
+class FakeHub:
+    """Подмена CameraHub для Emitter и HTTP-сервера."""
 
-    def close(self):
-        self.server.shutdown()
-        self.server.server_close()
+    def __init__(self, codes=None, response=None):
+        codes = codes or []
+        self._sockets = {c: FakeSocket(c, response=response) for c in codes}
+
+    def get(self, camera_code: str):
+        return self._sockets.get(camera_code)
+
+    def connected_count(self) -> int:
+        return sum(1 for s in self._sockets.values() if s.connected)
+
+    def add(self, code: str, **kw):
+        sock = FakeSocket(code, **kw)
+        self._sockets[code] = sock
+        return sock
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
 
 
 def wait_until(predicate, timeout=3.0):

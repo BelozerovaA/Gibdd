@@ -1,8 +1,8 @@
 # Backend: сервис ГИБДД
 
-Серверная часть: REST API и WebSocket на **FastAPI**, данные в **MySQL**. Обслуживает клиентов ([сайт](../web-frontend/README.md) и [мобильное приложение](../AvtoDozor/README.md)), хранит розыск, принимает события от [сервиса камер](../camera-service/README.md), создаёт оповещения и доставляет их сотрудникам.
+Серверная часть: REST API и WebSocket на **FastAPI**, данные в **MySQL**. Обслуживает клиентов ([мобильное приложение](../AvtoDozor/README.md)), хранит розыск, принимает события от [сервиса камер](../camera-service/README.md), создаёт оповещения и доставляет их сотрудникам.
 
-Камеры в backend не входят: это отдельный сервис, с которым backend общается по [протоколу](../camera-service/docs/protocol.md). Описание проекта в целом: [корневой README](../README.md), архитектура: [docs/architecture.md](../docs/architecture.md). ER-диаграмма: [docs/er-diagram.png](../docs/er-diagram.png).
+Камеры в backend не входят: это отдельный сервис, с которым backend общается по [протоколу](../camera-service/docs/protocol.md). Описание проекта в целом: [корневой README](../README.md).
 
 ## Технологии
 
@@ -13,11 +13,9 @@ Python 3.12, FastAPI, SQLAlchemy 2, PyMySQL, python-jose (JWT), WebSocket, pytho
 - **Python 3.12.** На более новых версиях (3.13, 3.14) установка зависимостей падает: для закреплённой в `requirements.txt` версии `pydantic-core` нет готовой сборки, и pip пытается собирать её из исходников через Rust.
 - MySQL 8 (или совместимый).
 
-В Docker ничего из этого ставить не нужно: [docs/docker.md](../docs/docker.md).
-
 ## Запуск в Docker
 
-Backend запускается вместе со всей системой командой `docker compose up --build` из корня репозитория: [docs/docker.md](../docs/docker.md). Образ собирается по [`Dockerfile`](Dockerfile), а при старте скрипт [`docker-entrypoint.sh`](docker-entrypoint.sh) дожидается базы данных, заполняет её тестовыми данными и запускает сервер.
+Образ backend собирается по [`Dockerfile`](Dockerfile); при старте скрипт [`docker-entrypoint.sh`](docker-entrypoint.sh) дожидается базы данных, заполняет её тестовыми данными и запускает сервер.
 
 ## Быстрый старт без Docker
 
