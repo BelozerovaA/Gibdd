@@ -1,0 +1,1 @@
+CREATE DATABASE gibdd_db CHARACTER SET utf8mb4;
